@@ -44,7 +44,7 @@ import xyz.nextalone.nagram.NaConfig;
 
 public final class GitHubUpdater {
 
-    private static final String REPO = "dkroveev-spec/mvs";
+    private static final String REPO = "ndvtwww-altushka/mvs";
     public static final String RELEASES_URL = "https://github.com/" + REPO + "/releases";
     private static final String API = "https://api.github.com/repos/" + REPO;
     private static final long AUTO_INTERVAL = TimeUnit.HOURS.toMillis(6);

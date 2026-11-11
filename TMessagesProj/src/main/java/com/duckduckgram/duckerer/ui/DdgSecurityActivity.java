@@ -28,7 +28,7 @@ import java.util.List;
  */
 public class DdgSecurityActivity extends DdgCategoryActivity {
 
-    private static final String RELEASES_URL = "https://github.com/dkroveev-spec/mvs/releases";
+    private static final String RELEASES_URL = "https://github.com/ndvtwww-altushka/mvs/releases";
 
     @Override
     protected int titleRes() {
