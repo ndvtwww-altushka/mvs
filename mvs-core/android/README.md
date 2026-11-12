@@ -1,46 +1,57 @@
-# Android bridge — integration is optional and not enabled by this package
+# Android bridge — applied in this repository
 
-`MtprotoAdapter` delegates requests to the existing `ConnectionsManager`. `MvsCoreHost` lazily owns one `MvsNetCore` per account. These classes are not automatically compiled into `TMessagesProj` by copying this folder alone.
+Status: the bridge is wired into the app build (commit `21652f6`, branch `ink-studio`).
+Nothing calls it yet, so no production traffic goes through the core.
 
-## Contract used by the adapter
+## What is applied
 
-- A `ConnectionsManager.sendRequest(...)` overload accepting the explicit datacenter ID and connection type.
-- `ConnectionsManager.mvsSetUpdatesObserver(account, observer)`, added by the client-side hook below.
-- The observer must be invoked synchronously before the original `Updates` TLObject is freed. The adapter copies it to a byte array during that callback.
+1. `settings.gradle` includes `:mvs-core`.
+2. `TMessagesProj/build.gradle` depends on `project(':mvs-core')`.
+3. `ConnectionsManager` owns the observer registry:
+   - `mvsSetUpdatesObserver(int account, Consumer<TLRPC.Updates> observer)`;
+   - `mvsNotifyUpdatesObserver(...)`, called right before `processUpdates` in all
+     three `Updates` paths (typed request, plugin replacement, native message).
+   The observer runs synchronously while the TLObject is still alive; the adapter
+   copies it to a byte array inside that callback.
+4. `MtprotoAdapter` and `MvsCoreHost` live in the app source set
+   (`TMessagesProj/src/main/java/org/telegram/tgnet/` and `.../messenger/`).
+5. `adapter-stubs/` stays out of the APK.
 
-## Client integration checklist
+## What the build proves
 
-1. Add `include ':mvs-core'` to root `settings.gradle`.
-2. Add `implementation project(':mvs-core')` to `TMessagesProj/build.gradle` dependencies.
-3. Add the `mvsSetUpdatesObserver` registry and call it at both relevant `Updates` processing points in the actual `ConnectionsManager` source. The exact method names/locations can differ between fork revisions; do not blindly paste without checking the current source.
-4. Ensure `MtprotoAdapter.java` and `MvsCoreHost.java` are included in the app Java source set (or move them to a proper app source folder).
-5. Run `./gradlew :TMessagesProj:compileDebugJavaWithJavac` and fix any signature mismatch against the exact client revision.
-6. Run device smoke tests before routing any production requests through the core.
+- `TMessagesProj:assembleStaging` compiles the core against the real
+  `ConnectionsManager`: the 9-argument `sendRequest`, `cancelRequest(int, boolean)`,
+  `NativeByteBuffer` and the request flags all match this revision.
+- The staging job unpacks `classes*.dex` and fails the build when
+  `app/mvs/core/net/MvsNetCore`, `org/telegram/tgnet/MtprotoAdapter` or
+  `org/telegram/messenger/MvsCoreHost` is absent.
+- The standalone `verify-apk` workflow repeats that check on an existing artifact
+  and reports every class through annotations.
 
-## Suggested observer code
+## What it does not prove
 
-Inside `ConnectionsManager`:
+- No call site exists: `MvsCoreHost.get(account)` is never invoked, so the
+  scheduler, the retry chain, the breaker and the update queue never run.
+- R8 trims unreachable code. With `minifyEnabled` on staging and release, the
+  current APK keeps the bridge and the reachable core paths. `FrameCodec`,
+  `MessageStore` and `AesGcmCipher` are absent because nothing reaches them.
+  `CircuitBreaker` is merged into `DcSupervisor`: the name is gone, the logic is
+  not. That is why the dex check requires entry points, not every class.
+- No device smoke test has been run.
+- `nativeDcRouting` stays `false`: physical DC selection remains in
+  `ConnectionsManager`, and the core does not claim otherwise.
 
-```java
-private static final ConcurrentHashMap<Integer, Consumer<TLRPC.Updates>> mvsUpdatesObservers =
-        new ConcurrentHashMap<>();
+## Before routing production traffic
 
-public static void mvsSetUpdatesObserver(int account, Consumer<TLRPC.Updates> observer) {
-    if (observer == null) mvsUpdatesObservers.remove(account);
-    else mvsUpdatesObservers.put(account, observer);
-}
-
-private static void mvsNotifyUpdatesObserver(int account, TLRPC.Updates updates) {
-    Consumer<TLRPC.Updates> observer = mvsUpdatesObservers.get(account);
-    if (observer != null) {
-        try { observer.accept(updates); }
-        catch (Throwable error) { FileLog.e(error); }
-    }
-}
-```
-
-Call `mvsNotifyUpdatesObserver(currentAccount, updates)` immediately before the existing `processUpdates(updates)` invocation in each path that receives an `Updates` object. Keep original `processUpdates` calls unchanged. Verify the callback's thread and object lifetime in the exact client source.
+- Choose call sites deliberately. Replacing `sendRequest` wholesale changes the
+  behaviour of every feature at once.
+- Re-check the observer thread and the object lifetime on this exact client
+  revision, including the plugin path.
+- Watch updates processing and battery on a real device with the core enabled.
 
 ## Important
 
-`adapter-stubs/` exists only to validate Java signatures without the Android client. It must not be included in the APK. The adapter does not implement MTProto encryption, auth, handshake or native DC migration; those remain inside `ConnectionsManager`.
+`adapter-stubs/` exists only to validate Java signatures without the Android
+client and must not be included in the APK. The bridge does not implement MTProto
+encryption, auth, handshake or native DC migration; those remain inside
+`ConnectionsManager`.
