@@ -54,11 +54,17 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          set -euo pipefail
+          set +e
           echo "core compile : ${{ steps.core.outcome }}"
           echo "tests compile: ${{ steps.tests.outcome }}"
+          echo "----- core-javac.log -----"
+          cat mvs-core/core-javac.log 2>/dev/null || true
           echo "----- tests-javac.log -----"
-          cat mvs-core/tests-javac.log || true
+          cat mvs-core/tests-javac.log 2>/dev/null || true
+          # Job logs are not readable from outside; annotations are.
+          grep -h -E 'error:' mvs-core/*-javac.log 2>/dev/null | head -n 8 | while IFS= read -r line; do
+            echo "::error title=javac::$line"
+          done || true
 
   adapter-contract:
     runs-on: ubuntu-latest
