@@ -395,6 +395,75 @@ public final class RegressionTest {
             catch (ExecutionException expected) { }
         });
 
+        test("failover moves to the next DC and rebuilds the payload", () -> {
+            final class DcPort implements MtprotoPort {
+                final List<Integer> dcs = new ArrayList<>();
+                final List<Object> payloads = new ArrayList<>();
+                @Override public Handle send(int dc, String method, Object tl, Callback cb) {
+                    dcs.add(dc);
+                    payloads.add(tl);
+                    if (dc == 1) cb.onError(500, "CONNECTION_FAILED", 0);
+                    else cb.onReply("reply-" + dc);
+                    return () -> { };
+                }
+            }
+            DcPort port = new DcPort();
+            MvsNetCore core = new MvsNetCore(port, new MvsNetCore.Config(), Clock.MONOTONIC);
+            try {
+                CallScheduler.Options options = new CallScheduler.Options();
+                options.dc = 1;
+                options.timeoutMs = 2000;
+                AtomicInteger built = new AtomicInteger();
+                Object value = await(core.sendWithFailover("test.method",
+                        () -> new Object[]{built.incrementAndGet()}, options));
+                check(built.get() == 2, "payload not rebuilt per attempt: " + built.get());
+                check(port.dcs.size() == 2 && port.dcs.get(0) == 1 && port.dcs.get(1) == 2,
+                        "unexpected dc order: " + port.dcs);
+                check(port.payloads.get(0) != port.payloads.get(1), "payload object reused");
+                check("reply-2".equals(value), "success not propagated: " + value);
+            } finally {
+                core.shutdown(2000);
+            }
+        });
+
+        test("failover stops on authoritative errors and honors the attempt limit", () -> {
+            final class DcPort implements MtprotoPort {
+                final List<Integer> dcs = new ArrayList<>();
+                @Override public Handle send(int dc, String method, Object tl, Callback cb) {
+                    dcs.add(dc);
+                    if (dc == 1) cb.onError(400, "BAD_REQUEST", 0);
+                    else cb.onError(500, "CONNECTION_FAILED", 0);
+                    return () -> { };
+                }
+            }
+            DcPort port = new DcPort();
+            MvsNetCore.Config config = new MvsNetCore.Config();
+            config.maxFailoverAttempts = 2;
+            MvsNetCore core = new MvsNetCore(port, config, Clock.MONOTONIC);
+            try {
+                CallScheduler.Options options = new CallScheduler.Options();
+                options.dc = 1;
+                options.timeoutMs = 2000;
+                try {
+                    await(core.sendWithFailover("test.method", () -> new Object(), options));
+                    throw new AssertionError("a 400 switched data centre");
+                } catch (ExecutionException expected) {
+                    check(port.dcs.equals(Collections.singletonList(1)), "4xx moved to another dc: " + port.dcs);
+                    check(expected.getCause() instanceof RpcException
+                            && ((RpcException) expected.getCause()).code == 400, "wrong error propagated");
+                }
+                port.dcs.clear();
+                try {
+                    await(core.sendWithFailover("test.method", () -> new Object(), options));
+                    throw new AssertionError("5xx accepted after every attempt");
+                } catch (ExecutionException expected) {
+                    check(port.dcs.equals(Arrays.asList(1, 2)), "attempt limit not honored: " + port.dcs);
+                }
+            } finally {
+                core.shutdown(2000);
+            }
+        });
+
         test("requests preserve native default DC selection", () -> {
             check(new CallScheduler.Options().dc == Integer.MAX_VALUE,
                     "default request must not pin every account to Telegram DC 1");

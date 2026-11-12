@@ -9,13 +9,24 @@ import java.util.function.Consumer;
 public final class MtprotoAdapter implements MtprotoPort {
     private final int account;
     private final ConnectionsManager connections;
+    private final boolean copyReplies;
     private volatile Consumer<Object> updatesSink;
 
     public MtprotoAdapter(int account) {
+        this(account, false);
+    }
+
+    /**
+     * @param copyReplies serialize every reply into a byte array inside the native callback.
+     *     The TLObject handed to that callback is freed the moment it returns, so any consumer
+     *     that finishes on another thread (the core completes futures) needs a copy first.
+     */
+    public MtprotoAdapter(int account, boolean copyReplies) {
         if (account < 0 || account >= org.telegram.messenger.UserConfig.MAX_ACCOUNT_COUNT)
             throw new IllegalArgumentException("invalid account index: " + account);
         this.account = account;
         this.connections = ConnectionsManager.getInstance(account);
+        this.copyReplies = copyReplies;
     }
 
     @Override public Handle send(int dc, String method, Object tlRequest, Callback callback) {
@@ -32,6 +43,7 @@ public final class MtprotoAdapter implements MtprotoPort {
         int requestToken = connections.sendRequest(request, (response, error) -> {
             if (cancelled.get()) return;
             if (error != null) callback.onError(error.code, error.text, floodWaitMs(error.text));
+            else if (copyReplies) callback.onReply(toBytes(response)); // null means an empty reply
             else callback.onReply(response); // Response TLObjects are valid only during this callback.
         }, null, null, null, flags, datacenterId, ConnectionsManager.ConnectionTypeGeneric, true);
         return () -> {

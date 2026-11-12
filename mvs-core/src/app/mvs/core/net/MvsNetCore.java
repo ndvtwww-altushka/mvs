@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /** High-level network core. Actual MTProto encryption/routing remains in the native client. */
 public final class MvsNetCore {
@@ -26,6 +27,11 @@ public final class MvsNetCore {
         public double retryBudgetTokens = 20;
         public double retryBudgetRefillPerSec = 4;
         public int updateQueueCap = 1024;
+        /**
+         * How many data centres one {@code sendWithFailover} call may touch, counting the
+         * first attempt. The preferred (home) data centre is always first.
+         */
+        public int maxFailoverAttempts = 3;
         /** False until the adapter/native engine provides authoritative per-DC routing. */
         public boolean nativeDcRouting = false;
 
@@ -42,6 +48,7 @@ public final class MvsNetCore {
             copy.retryBudgetTokens = retryBudgetTokens;
             copy.retryBudgetRefillPerSec = retryBudgetRefillPerSec;
             copy.updateQueueCap = updateQueueCap;
+            copy.maxFailoverAttempts = maxFailoverAttempts;
             copy.nativeDcRouting = nativeDcRouting;
             copy.validate();
             return copy;
@@ -50,6 +57,8 @@ public final class MvsNetCore {
         private void validate() {
             if (maxInFlight < 1 || perDcInFlight < 1 || queueCap < 1 || updateQueueCap < 1)
                 throw new IllegalArgumentException("queue and concurrency limits must be > 0");
+            if (maxFailoverAttempts < 1)
+                throw new IllegalArgumentException("maxFailoverAttempts must be > 0");
             if (maxRetries < 0 || retryBaseMs < 0 || retryCapMs < 0
                     || floodWaitCapMs < 0 || retryCapMs < retryBaseMs)
                 throw new IllegalArgumentException("invalid retry limits");
@@ -144,6 +153,129 @@ public final class MvsNetCore {
             }
         });
         return future;
+    }
+
+    /**
+     * Failover entry point: tries at most {@link Config#maxFailoverAttempts} data centres in
+     * order and asks {@code factory} for a brand new payload on every attempt.
+     *
+     * <p>A payload is not reusable across attempts: the native engine frees a reply when its
+     * callback returns, and a request object that was already submitted must not be replayed.
+     * The Android host therefore runs this core with {@code maxRetries = 0} and lets this
+     * method own the only repeat.</p>
+     *
+     * <p>Only transport-shaped failures move on: a timeout, {@code IOException}, or an
+     * {@link RpcException} that is not authoritative (negative codes, {@code 0}, 5xx).
+     * 4xx answers, flood waits and {@code 303 MIGRATE_*} stay final, because switching the
+     * data centre cannot fix a rejected request and migration belongs to the native engine.</p>
+     */
+    public CompletableFuture<Object> sendWithFailover(String method, Supplier<Object> factory,
+                                                      CallScheduler.Options options) {
+        if (!running.get()) return failed(new IllegalStateException("network core is shut down"));
+        if (factory == null) return failed(new IllegalArgumentException("factory == null"));
+        if (options == null) return failed(new IllegalArgumentException("options == null"));
+        if (method == null || method.trim().isEmpty()) return failed(new IllegalArgumentException("method is empty"));
+        if (options.timeoutMs < 1) return failed(new IllegalArgumentException("timeoutMs must be > 0"));
+        if (supervisor.isOffline()) return failed(new IllegalStateException("offline (kill-switch)"));
+
+        int[] order = failoverOrder(options.dc);
+        if (order.length == 0) return failed(new IllegalStateException("no healthy dc"));
+        CompletableFuture<Object> result = new CompletableFuture<>();
+        failoverAttempt(method, factory, options, order, 0, result);
+        return result;
+    }
+
+    /** Ordered data centres for one failover request; empty when every breaker is open. */
+    private int[] failoverOrder(int preferred) {
+        int limit = Math.min(Math.max(1, cfg.maxFailoverAttempts), cfg.dcCandidates.length + 1);
+        List<Integer> order = new ArrayList<>();
+        boolean pinned = preferred >= 1 && preferred != CallScheduler.AUTO_DC;
+        if (pinned && supervisor.breaker(preferred).peek()) order.add(preferred);
+        int[] remaining = cfg.dcCandidates.clone();
+        while (order.size() < limit && remaining.length > 0) {
+            int next = supervisor.select(0, remaining);
+            if (next < 0) break;
+            if (!order.contains(next)) order.add(next);
+            remaining = without(remaining, next);
+        }
+        int[] result = new int[order.size()];
+        for (int i = 0; i < result.length; i++) result[i] = order.get(i);
+        return result;
+    }
+
+    private static int[] without(int[] values, int skip) {
+        int[] kept = new int[values.length];
+        int size = 0;
+        for (int value : values) if (value != skip) kept[size++] = value;
+        int[] result = new int[size];
+        System.arraycopy(kept, 0, result, 0, size);
+        return result;
+    }
+
+    private void failoverAttempt(String method, Supplier<Object> factory,
+                                 CallScheduler.Options base, int[] order, int index,
+                                 CompletableFuture<Object> sink) {
+        if (sink.isDone()) return;
+        if (index >= order.length) {
+            sink.completeExceptionally(new IllegalStateException("no dc accepted the request"));
+            return;
+        }
+        final int dc = order[index];
+        final Object payload;
+        try {
+            payload = factory.get();
+        } catch (RuntimeException failure) {
+            sink.completeExceptionally(failure);
+            return;
+        }
+        if (payload == null) {
+            sink.completeExceptionally(new IllegalArgumentException("factory returned null"));
+            return;
+        }
+        final long probe = supervisor.breaker(dc).allow();
+        if (probe < 0) { // breaker rejected this data centre: try the next one
+            failoverAttempt(method, factory, base, order, index + 1, sink);
+            return;
+        }
+
+        CallScheduler.Options attempt = base.copy();
+        attempt.dc = dc;
+        final long startedNanos = System.nanoTime();
+        send(method, payload, attempt).whenComplete((value, error) -> {
+            if (sink.isDone()) {
+                supervisor.onCancelled(dc, probe);
+                return;
+            }
+            Throwable cause = unwrap(error);
+            if (cause == null) {
+                supervisor.onResult(dc, true, elapsedMs(startedNanos), probe);
+                sink.complete(value);
+                return;
+            }
+            supervisor.onResult(dc, false, elapsedMs(startedNanos), probe);
+            if (cause instanceof CancellationException) {
+                sink.cancel(false);
+                return;
+            }
+            if (isFailoverCandidate(cause) && index + 1 < order.length) {
+                failoverAttempt(method, factory, base, order, index + 1, sink);
+                return;
+            }
+            sink.completeExceptionally(cause);
+        });
+    }
+
+    private static boolean isFailoverCandidate(Throwable failure) {
+        if (failure instanceof TimeoutException) return true;
+        if (failure instanceof java.io.IOException) return true;
+        if (failure instanceof RpcException) {
+            RpcException rpc = (RpcException) failure;
+            if (rpc.retryAfterMs > 0) return false;
+            if (rpc.code == 303) return false;
+            if (rpc.code >= 400 && rpc.code < 500) return false;
+            return true;
+        }
+        return false;
     }
 
     public void addUpdateListener(Consumer<Object> listener) {

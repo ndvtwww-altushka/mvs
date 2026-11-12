@@ -17,5 +17,6 @@ public class ConnectionsManager {
             WriteToSocketDelegate onWriteToSocket, int flags, int datacenterId,
             int connectionType, boolean immediate) { return 0; }
     public void cancelRequest(int token, boolean notifyServer) { }
+    public int getCurrentDatacenterId() { return 2; }
     public static void mvsSetUpdatesObserver(int account, Consumer<TLRPC.Updates> observer) { }
 }
