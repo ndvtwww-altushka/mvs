@@ -36,5 +36,8 @@ compile-only контрактом против стабов с сигнатур�
 Авторитетная проверка — `./gradlew :TMessagesProj:compileDebugJavaWithJavac`
 и прогон на устройстве. Ни того, ни другого пока не было.
 
-Подключение к сборке: `:mvs-core` в `settings.gradle`, зависимость в
-`TMessagesProj/build.gradle`, конфигурация — `mvs-core/build.gradle`.
+К сборке приложения модуль **не подключён**: `mvs-core/build.gradle` удалён,
+`:mvs-core` в `settings.gradle` отсутствует, `ConnectionsManager.java` не изменён.
+Мост к движку лежит в `mvs-core/android/` и собирается только против стабов.
+Включение — отдельный коммит: патч `android/ConnectionsManager.mvs.patch`,
+`:mvs-core` в `settings.gradle`, зависимость в `TMessagesProj/build.gradle`.
