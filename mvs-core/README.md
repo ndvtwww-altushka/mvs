@@ -28,8 +28,13 @@ sh run-tests.sh
 
 ## Границы
 
-Модуль ничего не знает про Telegram: он общается с движком через
-`MtprotoPort`, а хранилище получает ключ через `CipherPort`. Подключение к
-`ConnectionsManager` — отдельная задача, в модуль пока не входит.
+Модуль ничего не знает про Telegram: движок подключается через `MtprotoPort`,
+ключ — через `CipherPort`. Мост `MtprotoAdapter` живёт в Android-части
+(`org.telegram.tgnet`) и в JVM-модуль не входит; в CI он проверяется только
+compile-only контрактом против стабов с сигнатурами из этого дерева.
 
-Подробности проверки и открытые места — в `AUDIT.md`.
+Авторитетная проверка — `./gradlew :TMessagesProj:compileDebugJavaWithJavac`
+и прогон на устройстве. Ни того, ни другого пока не было.
+
+Подключение к сборке: `:mvs-core` в `settings.gradle`, зависимость в
+`TMessagesProj/build.gradle`, конфигурация — `mvs-core/build.gradle`.
