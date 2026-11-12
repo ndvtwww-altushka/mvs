@@ -49,7 +49,7 @@ public final class CircuitBreaker {
             if (ok) { state = State.CLOSED; cooldown = cooldownBase; clear(); } else open();
             return;
         }
-        if (state != CLOSED) return;   // обычный запрос не трогает OPEN/HALF_OPEN
+        if (state != State.CLOSED) return;   // обычный запрос не трогает OPEN/HALF_OPEN
         if (count == window) { if (!ring[pos]) fails--; } else count++;
         ring[pos] = ok; if (!ok) fails++;
         pos = (pos + 1) % window;

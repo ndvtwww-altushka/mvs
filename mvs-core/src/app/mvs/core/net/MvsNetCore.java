@@ -34,7 +34,7 @@ public final class MvsNetCore {
 
     public MvsNetCore(MtprotoPort port, Config cfg, Clock clock) {
         this.cfg = cfg;
-        this.timers = Executors.newScheduledThreadPool(1, r -> named(r, "mvs-net-timers"));
+        this.timers = Executors.newScheduledThreadPool(1, r -> { Thread t = new Thread(r, "mvs-net-timers"); t.setDaemon(true); return t; });
         this.supervisor = new DcSupervisor(clock);
         this.scheduler = new CallScheduler(port, cfg.maxInFlight, cfg.perDcInFlight, cfg.queueCap, timers);
         List<RequestPipeline.Interceptor> chain = new ArrayList<>();

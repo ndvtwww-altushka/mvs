@@ -57,13 +57,16 @@ public final class RegressionTest {
             s.close();
         });
         t("1c pending drained before compact", 5000, () -> {
-            MessageStore s = new MessageStore(Files.createTempDirectory("r").toFile(), aes, timers);
+            File dir = Files.createTempDirectory("r").toFile();
+            MessageStore s = new MessageStore(dir, aes, timers);
             s.put(5, 1, "x".getBytes());                 // ещё в pending
             s.compact((d, m) -> false).get(3, TimeUnit.SECONDS);
             s.flush().get();
             check(s.get(5, 1).get() == null, "pending not resurrected");
             s.close();
-            MessageStore re = new MessageStore(new File(sDir, "x"), aes, timers); // placeholder replaced below
+            MessageStore re = new MessageStore(dir, aes, timers);
+            check(re.get(5, 1).get() == null, "compaction persisted across reopen");
+            re.close();
         });
         t("1d close releases writer", 15000, () -> {
             CountDownLatch block = new CountDownLatch(1);
@@ -102,7 +105,7 @@ public final class RegressionTest {
         });
         t("2d seq mismatch rejected", 3000, () -> {
             FrameCodec.Frame inner = FrameCodec.fragment(FrameCodec.EVT, 1, new byte[20], 10).get(0);
-            FrameCodec.Frame bad = new FrameCodec.Frame(FrameCodec.FRAG, 0, 999, inner.payload);
+            FrameCodec.Frame bad = new FrameCodec.Frame(FrameCodec.FRAG, (byte)0, 999, inner.payload);
             try { new FrameCodec.Reassembler().feed(bad); throw new AssertionError("accepted"); }
             catch (FrameCodec.ProtocolException ok) {}
         });
@@ -230,20 +233,18 @@ public final class RegressionTest {
             cb.record(true, p1); check(cb.state() == CircuitBreaker.State.HALF_OPEN, "old token ignored");
         });
         t("7a updates drained on shutdown", 5000, () -> {
+            java.util.concurrent.atomic.AtomicReference<java.util.function.Consumer<Object>> sink = new java.util.concurrent.atomic.AtomicReference<>();
             MtprotoPort p = new MtprotoPort() {
                 public Handle send(int dc, String m, Object tl, Callback cb) { cb.onReply(new byte[]{1}); return () -> {}; }
-                public void setUpdatesListener(java.util.function.Consumer<Object> sink) { this.sink = sink; }
-                java.util.function.Consumer<Object> sink;
+                public void setUpdatesListener(java.util.function.Consumer<Object> s) { sink.set(s); }
             };
             MvsNetCore.Config cfg = new MvsNetCore.Config(); cfg.updateQueueCap = 64;
             MvsNetCore core = new MvsNetCore(p, cfg, Clock.SYSTEM);
             AtomicInteger got = new AtomicInteger();
-            core.addUpdateListener(u -> { got.incrementAndGet(); try { Thread.sleep(20); } catch (InterruptedException ignored) {} });
-            for (int i = 0; i < 10; i++) ((MtprotoPort)p).setUpdatesListener(null); // no-op guard
-            // enqueue через сохранённый sink:
-            // (sink недоступен напрямую; используем рефлексию не нужно — порт вызывает сам)
+            core.addUpdateListener(u -> got.incrementAndGet());
+            for (int i = 0; i < 10; i++) sink.get().accept(new byte[]{1});
             core.shutdown(3000);
-            check(got.get() >= 0, "shutdown returned");
+            check(got.get() == 10, "all updates drained on shutdown, got " + got.get());
         });
         t("8a CRC body corruption", 3000, () -> {
             File dir = Files.createTempDirectory("r").toFile();
