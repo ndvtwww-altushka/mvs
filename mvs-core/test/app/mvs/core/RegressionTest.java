@@ -51,7 +51,7 @@ public final class RegressionTest {
             MessageStore s = new MessageStore(Files.createTempDirectory("r").toFile(), c, timers);
             s.put(1, 1, "v".getBytes()).get();
             failSeal.set(true);
-            try { s.compact((d, m) -> false).get(3, TimeUnit.SECONDS); throw new AssertionError("compact should fail"); }
+            try { s.compact((d, m) -> true).get(3, TimeUnit.SECONDS); throw new AssertionError("compact should fail"); }
             catch (ExecutionException ok) {}
             check(s.get(1, 1).get() != null, "index intact after failed compact");
             s.close();
@@ -100,7 +100,7 @@ public final class RegressionTest {
             ra.feed(FrameCodec.fragment(FrameCodec.EVT, 1, new byte[100], 50).get(0));
             check(ra.pendingCount() == 1, "pending");
             mc.advance(1001);
-            ra.feed(FrameCodec.fragment(FrameCodec.EVT, 2, new byte[10], 10).get(0));
+            ra.feed(FrameCodec.fragment(FrameCodec.EVT, 2, new byte[100], 50).get(0)); // неполная сборка, иначе она сразу завершится
             check(ra.pendingCount() == 1, "stale evicted");
         });
         t("2d seq mismatch rejected", 3000, () -> {
