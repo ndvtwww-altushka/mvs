@@ -96,6 +96,45 @@ jobs:
           export BUILD_TIMESTAMP=$(date +%s)
           echo "build_timestamp=$BUILD_TIMESTAMP" >> "$GITHUB_OUTPUT"
           ./gradlew TMessagesProj:assembleStaging
+      - name: Verify mvs-core inside the APK
+        run: |
+          set -euo pipefail
+          apk=$(ls TMessagesProj/build/outputs/apk/staging/*.apk | head -n 1)
+          echo "apk: $apk"
+          rm -rf /tmp/mvs-dex
+          mkdir -p /tmp/mvs-dex
+          unzip -o -q "$apk" 'classes*.dex' -d /tmp/mvs-dex
+          ls -l /tmp/mvs-dex
+          missing=0
+          for cls in \
+            app/mvs/core/net/MvsNetCore \
+            app/mvs/core/net/CallScheduler \
+            app/mvs/core/net/RetryInterceptor \
+            app/mvs/core/net/CircuitBreaker \
+            org/telegram/tgnet/MtprotoAdapter \
+            org/telegram/messenger/MvsCoreHost; do
+            if grep -aq "$cls" /tmp/mvs-dex/*.dex; then
+              echo "PRESENT $cls"
+            else
+              echo "MISSING $cls"
+              missing=1
+            fi
+          done
+          for cls in \
+            app/mvs/core/wire/FrameCodec \
+            app/mvs/core/store/MessageStore \
+            app/mvs/core/store/AesGcmCipher; do
+            if grep -aq "$cls" /tmp/mvs-dex/*.dex; then
+              echo "present-unused $cls"
+            else
+              echo "absent-unused $cls"
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "mvs-core is not in the APK: the bridge was removed by R8"
+            exit 1
+          fi
+          echo "mvs-core bridge and network core are inside the APK"
       - name: Upload arm64-v8a Artifact
         uses: actions/upload-artifact@v7
         with:
