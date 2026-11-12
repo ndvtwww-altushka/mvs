@@ -1,0 +1,30 @@
+# Патч к TMessagesProj/.../tgnet/ConnectionsManager.java.
+# НЕ применён: ветка core-audit не меняет Android-модуль.
+#
+# 1. В тело класса (после "public class ConnectionsManager extends BaseController {"):
+
+    private static final java.util.concurrent.ConcurrentHashMap<Integer, java.util.function.Consumer<TLRPC.Updates>> mvsUpdatesObservers = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public static void mvsSetUpdatesObserver(int account, java.util.function.Consumer<TLRPC.Updates> observer) {
+        if (observer == null) mvsUpdatesObservers.remove(account);
+        else mvsUpdatesObservers.put(account, observer);
+    }
+
+    private static void mvsNotifyUpdatesObserver(int account, TLRPC.Updates updates) {
+        java.util.function.Consumer<TLRPC.Updates> observer = mvsUpdatesObservers.get(account);
+        if (observer != null) {
+            try { observer.accept(updates); } catch (Throwable t) { FileLog.e(t); }
+        }
+    }
+
+# 2. sendRequestInternal, ветка pluginResponse instanceof TLRPC.Updates, перед processUpdates:
+
+    mvsNotifyUpdatesObserver(currentAccount, (TLRPC.Updates) pluginResponse);
+
+# 3. onUnparsedMessageReceived, внутри stageQueue.postRunnable, перед processUpdates:
+
+    mvsNotifyUpdatesObserver(currentAccount, (TLRPC.Updates) message);
+
+# Observer вызывается на stageQueue синхронно до processUpdates и до freeResources,
+# поэтому копия в byte[] безопасна. processUpdates остаётся на месте: поведение
+# приложения не меняется, пока никто не подписался.

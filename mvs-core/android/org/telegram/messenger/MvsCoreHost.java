@@ -9,6 +9,9 @@ import org.telegram.tgnet.MtprotoAdapter;
  * Перевод существующего трафика приложения на ядро — отдельный шаг, здесь его нет.
  */
 public final class MvsCoreHost {
+
+    /* Не подключён к сборке приложения: точка входа для будущей интеграции. */
+
     private static final MvsNetCore[] CORES = new MvsNetCore[UserConfig.MAX_ACCOUNT_COUNT];
 
     public static synchronized MvsNetCore get(int account) {

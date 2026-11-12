@@ -73,7 +73,7 @@ jobs:
           set -euo pipefail
           rm -rf out-adapter && mkdir -p out-adapter
           find mvs-core/src mvs-core/adapter-stubs -name '*.java' > adapter-sources.txt
-          echo TMessagesProj/src/main/java/org/telegram/tgnet/MtprotoAdapter.java >> adapter-sources.txt
-          echo TMessagesProj/src/main/java/org/telegram/messenger/MvsCoreHost.java >> adapter-sources.txt
+          echo mvs-core/android/org/telegram/tgnet/MtprotoAdapter.java >> adapter-sources.txt
+          echo mvs-core/android/org/telegram/messenger/MvsCoreHost.java >> adapter-sources.txt
           wc -l < adapter-sources.txt
           javac -Xlint:all -encoding UTF-8 -d out-adapter @adapter-sources.txt

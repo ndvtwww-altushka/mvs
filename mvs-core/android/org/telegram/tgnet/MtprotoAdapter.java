@@ -18,6 +18,10 @@ import java.util.function.Consumer;
  */
 public final class MtprotoAdapter implements MtprotoPort {
 
+    /* ВНИМАНИЕ: файл НЕ подключён к сборке приложения.
+     * Компилируется только против стабов (compile-only) и требует патча
+     * mvs-core/android/ConnectionsManager.mvs.patch из этого же каталога. */
+
     private final int account;
     private final ConnectionsManager cm;
     private volatile Consumer<Object> updatesSink;
