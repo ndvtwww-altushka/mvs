@@ -58,3 +58,22 @@ jobs:
           echo "tests compile: ${{ steps.tests.outcome }}"
           echo "----- tests-javac.log -----"
           cat mvs-core/tests-javac.log || true
+
+  adapter-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Compile adapter against verified-signature stubs (compile-only)
+        run: |
+          set -euo pipefail
+          rm -rf out-adapter && mkdir -p out-adapter
+          find mvs-core/src mvs-core/adapter-stubs -name '*.java' > adapter-sources.txt
+          echo TMessagesProj/src/main/java/org/telegram/tgnet/MtprotoAdapter.java >> adapter-sources.txt
+          echo TMessagesProj/src/main/java/org/telegram/messenger/MvsCoreHost.java >> adapter-sources.txt
+          wc -l < adapter-sources.txt
+          javac -Xlint:all -encoding UTF-8 -d out-adapter @adapter-sources.txt

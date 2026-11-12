@@ -27,6 +27,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "exteraless"
 include ':TMessagesProj'
+include ':mvs-core'
 
 gradle.ext.androidxMediaModulePrefix = 'TMessagesProj_Modules:media3:media-'
 apply from: file("TMessagesProj_Modules/media/core_settings.gradle")

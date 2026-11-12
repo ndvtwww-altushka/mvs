@@ -1,0 +1,16 @@
+plugins {
+    id 'java-library'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+// Раскладка нестандартная и сохраняется: src/app/mvs/core, test/app/mvs/core.
+sourceSets {
+    main { java { srcDirs = ['src'] } }
+    test { java { srcDirs = ['test'] } }
+}
+
+// RegressionTest — обычный main-класс, не JUnit: его гоняют run-tests.sh и CI.

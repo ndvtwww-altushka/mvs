@@ -97,6 +97,21 @@ import xyz.nextalone.nagram.NaConfig;
 @OptIn(markerClass = UnstableApi.class)
 public class ConnectionsManager extends BaseController {
 
+    /** mvs: observer апдейтов для внешнего ядра; UpdatesController в форке отсутствует. */
+    private static final java.util.concurrent.ConcurrentHashMap<Integer, java.util.function.Consumer<TLRPC.Updates>> mvsUpdatesObservers = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public static void mvsSetUpdatesObserver(int account, java.util.function.Consumer<TLRPC.Updates> observer) {
+        if (observer == null) mvsUpdatesObservers.remove(account);
+        else mvsUpdatesObservers.put(account, observer);
+    }
+
+    private static void mvsNotifyUpdatesObserver(int account, TLRPC.Updates updates) {
+        java.util.function.Consumer<TLRPC.Updates> observer = mvsUpdatesObservers.get(account);
+        if (observer != null) {
+            try { observer.accept(updates); } catch (Throwable t) { FileLog.e(t); }
+        }
+    }
+
     public final static int ConnectionTypeGeneric = 1;
     public final static int ConnectionTypeDownload = 2;
     public final static int ConnectionTypeUpload = 4;
@@ -542,7 +557,8 @@ public class ConnectionsManager extends BaseController {
                             onCompleteTimestamp.run(pluginResponse, finalError, timestamp);
                         } else if (pluginResponse instanceof TLRPC.Updates) {
                             KeepAliveJob.finishJob();
-                            AccountInstance.getInstance(currentAccount).getMessagesController().processUpdates((TLRPC.Updates) pluginResponse, false);
+                            mvsNotifyUpdatesObserver(currentAccount, (TLRPC.Updates) pluginResponse);
+                AccountInstance.getInstance(currentAccount).getMessagesController().processUpdates((TLRPC.Updates) pluginResponse, false);
                         }
                         if (pluginResponse != null && pluginResponse != finalResponse) {
                             pluginResponse.freeResources();
@@ -904,7 +920,7 @@ public class ConnectionsManager extends BaseController {
                     FileLog.d("java received " + message);
                 }
                 KeepAliveJob.finishJob();
-                Utilities.stageQueue.postRunnable(() -> AccountInstance.getInstance(currentAccount).getMessagesController().processUpdates((TLRPC.Updates) message, false));
+                Utilities.stageQueue.postRunnable(() -> { mvsNotifyUpdatesObserver(currentAccount, (TLRPC.Updates) message); AccountInstance.getInstance(currentAccount).getMessagesController().processUpdates((TLRPC.Updates) message, false); });
             } else {
                 if (BuildVars.LOGS_ENABLED) {
                     FileLog.d(String.format("java received unknown constructor 0x%x", constructor));
