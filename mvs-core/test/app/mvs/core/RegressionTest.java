@@ -428,12 +428,13 @@ public final class RegressionTest {
             }
         });
 
-        test("failover stops on authoritative errors and honors the attempt limit", () -> {
+        test("failover keeps 4xx final and stops at the attempt limit", () -> {
             final class DcPort implements MtprotoPort {
                 final List<Integer> dcs = new ArrayList<>();
+                volatile int homeCode = 400; // what the home data centre answers
                 @Override public Handle send(int dc, String method, Object tl, Callback cb) {
                     dcs.add(dc);
-                    if (dc == 1) cb.onError(400, "BAD_REQUEST", 0);
+                    if (dc == 1) cb.onError(homeCode, "HOME_ANSWER", 0);
                     else cb.onError(500, "CONNECTION_FAILED", 0);
                     return () -> { };
                 }
@@ -447,6 +448,8 @@ public final class RegressionTest {
                 CallScheduler.Options options = new CallScheduler.Options();
                 options.dc = 1;
                 options.timeoutMs = 2000;
+                check(Arrays.equals(core.failoverPlan(1), new int[]{1, 2}),
+                        "unexpected plan: " + Arrays.toString(core.failoverPlan(1)));
                 try {
                     await(core.sendWithFailover("test.method", () -> new Object(), options));
                     throw new AssertionError("a 400 switched data centre");
@@ -456,15 +459,16 @@ public final class RegressionTest {
                             && ((RpcException) expected.getCause()).code == 400, "wrong error propagated");
                 }
                 port.dcs.clear();
+                port.homeCode = 500;
                 try {
                     await(core.sendWithFailover("test.method", () -> new Object(), options));
                     throw new AssertionError("5xx accepted after every attempt");
                 } catch (ExecutionException expected) {
                     check(port.dcs.equals(Arrays.asList(1, 2)),
                             "attempt limit not honored: tried " + port.dcs
-                                    + " plan=" + Arrays.toString(core.failoverPlan(1))
-                                    + " dc1=" + core.supervisor.breaker(1).state()
-                                    + " dc2=" + core.supervisor.breaker(2).state());
+                                    + " plan=" + Arrays.toString(core.failoverPlan(1)));
+                    check(expected.getCause() instanceof RpcException
+                            && ((RpcException) expected.getCause()).code == 500, "wrong final error");
                 }
             } finally {
                 core.shutdown(2000);
