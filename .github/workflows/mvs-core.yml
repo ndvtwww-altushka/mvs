@@ -34,17 +34,15 @@ jobs:
           find src -name '*.java' | sort > core-sources.txt
           javac -Xlint:all -encoding UTF-8 -d out @core-sources.txt 2>&1 | tee core-javac.log
 
-      - name: Compile tests as delivered (expected to fail on sDir)
+      - name: Compile tests
         id: tests
-        continue-on-error: true
         run: |
           set -euo pipefail
           cd mvs-core
           rm -rf out-all && mkdir -p out-all
           javac -encoding UTF-8 -d out-all @all-sources.txt 2>&1 | tee tests-javac.log
 
-      - name: Run RegressionTest when tests compile
-        if: steps.tests.outcome == 'success'
+      - name: Run RegressionTest
         run: |
           set -euo pipefail
           cd mvs-core
