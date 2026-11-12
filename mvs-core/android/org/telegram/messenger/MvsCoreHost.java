@@ -25,6 +25,9 @@ public final class MvsCoreHost {
         void onResult(TLObject response, int errorCode, String errorText);
     }
 
+    /** Logcat tag. The core is otherwise invisible unless something goes wrong. */
+    private static final String TAG = "mvs-core";
+
     private static final MvsNetCore[] CORES = new MvsNetCore[UserConfig.MAX_ACCOUNT_COUNT];
 
     public static synchronized MvsNetCore get(int account) {
@@ -66,9 +69,12 @@ public final class MvsCoreHost {
         CallScheduler.Options options = new CallScheduler.Options();
         options.timeoutMs = perAttemptTimeoutMs;
         options.dc = homeDc >= 1 ? homeDc : CallScheduler.Options.AUTO_DC;
+        android.util.Log.d(TAG, "send " + method + " home=" + options.dc
+                + " plan=" + java.util.Arrays.toString(core.failoverPlan(options.dc)));
         core.sendWithFailover(method, factory::get, options).whenComplete((value, error) -> {
             Throwable cause = unwrap(error);
             if (cause != null) {
+                android.util.Log.d(TAG, "fail " + method + " code=" + errorCode(cause) + " " + describe(cause));
                 callback.onResult(null, errorCode(cause), describe(cause));
                 return;
             }
@@ -80,6 +86,7 @@ public final class MvsCoreHost {
                 callback.onResult(null, -1, describe(failure));
                 return;
             }
+            android.util.Log.d(TAG, "reply " + method + " " + response.getClass().getSimpleName());
             callback.onResult(response, 0, null);
         });
         return true;
