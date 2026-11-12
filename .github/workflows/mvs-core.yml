@@ -2,6 +2,8 @@ name: mvs-core audit
 
 on:
   workflow_dispatch:
+  push:
+    branches: [core-audit]
 
 permissions:
   contents: read
