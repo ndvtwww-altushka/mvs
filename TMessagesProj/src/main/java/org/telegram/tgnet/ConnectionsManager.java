@@ -83,6 +83,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 import javax.net.ssl.SSLException;
 
@@ -145,6 +146,8 @@ public class ConnectionsManager extends BaseController {
 
     private static HashMap<String, ResolveHostByNameTask> resolvingHostnameTasks = new HashMap<>();
 
+    private static final ConcurrentHashMap<Integer, Consumer<TLRPC.Updates>> mvsUpdatesObservers = new ConcurrentHashMap<>();
+
     public static final Executor DNS_THREAD_POOL_EXECUTOR;
     public static final int CPU_COUNT = Runtime.getRuntime().availableProcessors();
     private static final int CORE_POOL_SIZE = Math.max(2, Math.min(CPU_COUNT - 1, 4));
@@ -165,6 +168,29 @@ public class ConnectionsManager extends BaseController {
         ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(CORE_POOL_SIZE, MAXIMUM_POOL_SIZE, KEEP_ALIVE_SECONDS, TimeUnit.SECONDS, sPoolWorkQueue, sThreadFactory);
         threadPoolExecutor.allowCoreThreadTimeOut(true);
         DNS_THREAD_POOL_EXECUTOR = threadPoolExecutor;
+    }
+
+    public static void mvsSetUpdatesObserver(int account, Consumer<TLRPC.Updates> observer) {
+        if (observer == null) {
+            mvsUpdatesObservers.remove(account);
+        } else {
+            mvsUpdatesObservers.put(account, observer);
+        }
+    }
+
+    private static void mvsNotifyUpdatesObserver(int account, TLRPC.Updates updates) {
+        if (updates == null) {
+            return;
+        }
+        Consumer<TLRPC.Updates> observer = mvsUpdatesObservers.get(account);
+        if (observer == null) {
+            return;
+        }
+        try {
+            observer.accept(updates);
+        } catch (Throwable error) {
+            FileLog.e(error);
+        }
     }
 
     public void setForceTryIpV6(boolean forceTryIpV6) {
@@ -371,6 +397,7 @@ public class ConnectionsManager extends BaseController {
     public int sendRequestTypedAndProcessUpdates(TLMethod<TLRPC.Updates> method, Executor executor, Utilities.Callback2<TLRPC.Updates, TLRPC.TL_error> completionBlock, int dcId, int requestFlags) {
         return sendRequestTyped(method, null, (result, err) -> {
             if (result != null) {
+                mvsNotifyUpdatesObserver(currentAccount, result);
                 getMessagesController().processUpdates(result, false);
             }
             if (executor != null) {
@@ -542,6 +569,7 @@ public class ConnectionsManager extends BaseController {
                             onCompleteTimestamp.run(pluginResponse, finalError, timestamp);
                         } else if (pluginResponse instanceof TLRPC.Updates) {
                             KeepAliveJob.finishJob();
+                            mvsNotifyUpdatesObserver(currentAccount, (TLRPC.Updates) pluginResponse);
                             AccountInstance.getInstance(currentAccount).getMessagesController().processUpdates((TLRPC.Updates) pluginResponse, false);
                         }
                         if (pluginResponse != null && pluginResponse != finalResponse) {
@@ -904,7 +932,10 @@ public class ConnectionsManager extends BaseController {
                     FileLog.d("java received " + message);
                 }
                 KeepAliveJob.finishJob();
-                Utilities.stageQueue.postRunnable(() -> AccountInstance.getInstance(currentAccount).getMessagesController().processUpdates((TLRPC.Updates) message, false));
+                Utilities.stageQueue.postRunnable(() -> {
+                    mvsNotifyUpdatesObserver(currentAccount, (TLRPC.Updates) message);
+                    AccountInstance.getInstance(currentAccount).getMessagesController().processUpdates((TLRPC.Updates) message, false);
+                });
             } else {
                 if (BuildVars.LOGS_ENABLED) {
                     FileLog.d(String.format("java received unknown constructor 0x%x", constructor));

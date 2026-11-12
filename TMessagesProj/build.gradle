@@ -373,6 +373,8 @@ configurations.configureEach {
 }
 
 dependencies {
+    // mvs
+    implementation project(':mvs-core')
     // official
     implementation 'androidx.core:core-ktx:1.19.0'
     implementation 'androidx.palette:palette-ktx:1.0.0'

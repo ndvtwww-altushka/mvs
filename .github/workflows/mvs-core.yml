@@ -1,0 +1,80 @@
+name: mvs-core audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, core-audit, ink-studio]
+    paths:
+      - 'mvs-core/**'
+      - '.github/workflows/mvs-core.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: List sources
+        run: |
+          set -euo pipefail
+          cd mvs-core
+          find src test -name '*.java' | sort | tee all-sources.txt
+          echo "count: $(wc -l < all-sources.txt)"
+
+      - name: Compile core sources (audit part 1)
+        id: core
+        run: |
+          set -euo pipefail
+          cd mvs-core
+          rm -rf out && mkdir -p out
+          find src -name '*.java' | sort > core-sources.txt
+          javac -Xlint:all -encoding UTF-8 -d out @core-sources.txt 2>&1 | tee core-javac.log
+
+      - name: Compile tests
+        id: tests
+        run: |
+          set -euo pipefail
+          cd mvs-core
+          rm -rf out-all && mkdir -p out-all
+          javac -encoding UTF-8 -d out-all @all-sources.txt 2>&1 | tee tests-javac.log
+
+      - name: Run RegressionTest
+        run: |
+          set -euo pipefail
+          cd mvs-core
+          java -cp out-all app.mvs.core.RegressionTest
+
+      - name: Summary
+        if: always()
+        run: |
+          set -euo pipefail
+          echo "core compile : ${{ steps.core.outcome }}"
+          echo "tests compile: ${{ steps.tests.outcome }}"
+          echo "----- tests-javac.log -----"
+          cat mvs-core/tests-javac.log || true
+
+  adapter-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Compile adapter against verified-signature stubs (compile-only)
+        run: |
+          set -euo pipefail
+          rm -rf out-adapter && mkdir -p out-adapter
+          find mvs-core/src mvs-core/adapter-stubs -name '*.java' > adapter-sources.txt
+          echo mvs-core/android/org/telegram/tgnet/MtprotoAdapter.java >> adapter-sources.txt
+          echo mvs-core/android/org/telegram/messenger/MvsCoreHost.java >> adapter-sources.txt
+          wc -l < adapter-sources.txt
+          javac -Xlint:all -encoding UTF-8 -d out-adapter @adapter-sources.txt
