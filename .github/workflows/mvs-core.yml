@@ -1,0 +1,40 @@
+name: mvs-core audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Compile core sources (no tests)
+        run: |
+          cd mvs-core
+          rm -rf out && mkdir -p out
+          find src -name '*.java' | sort > sources.txt
+          echo "files: $(wc -l < sources.txt)"
+          javac -Xlint:all -encoding UTF-8 -d out @sources.txt
+
+      - name: Compile tests as delivered
+        continue-on-error: true
+        id: tests_as_delivered
+        run: |
+          cd mvs-core
+          rm -rf out-all && mkdir -p out-all
+          find src test -name '*.java' | sort > all.txt
+          javac -encoding UTF-8 -d out-all @all.txt
+
+      - name: Report
+        if: always()
+        run: |
+          echo "core compile: ${{ steps.tests_as_delivered.outcome == 'skipped' && 'unknown' || 'see above' }}"
+          echo "tests as delivered (unpatched): ${{ steps.tests_as_delivered.outcome }}"
