@@ -10,9 +10,13 @@
 
 ## Состояние интеграции в этом репозитории
 
-Ядро **связано со сборкой приложения** (ветка `ink-studio`): `include ':mvs-core'` в `settings.gradle`, зависимость в `TMessagesProj/build.gradle`, мост `MtprotoAdapter`/`MvsCoreHost` в исходниках приложения и хук `mvsSetUpdatesObserver` в `ConnectionsManager` (три точки обработки `Updates`).
+Ядро связано со сборкой приложения (ветка `ink-studio`): `include ':mvs-core'` в `settings.gradle`, зависимость в `TMessagesProj/build.gradle`, мост `MtprotoAdapter`/`MvsCoreHost` в исходниках приложения и хук `mvsSetUpdatesObserver` в `ConnectionsManager`.
 
-При этом **ни один вызов приложения не идёт через ядро**: `MvsCoreHost.get(account)` пока никем не вызывается. Сборка и наличие классов в APK проверяются автоматически, работа на устройстве — нет. Подробности и ограничения: `android/README.md`.
+**Через ядро идёт один реальный запрос клиента:** загрузка `help.getAppConfig` в `MessagesController.appConfigFetcher.getRemote`. Она вызывается при старте и раз в четыре минуты; при ошибке клиент берёт локальную копию из SQLite, поэтому сбой ядра ухудшает конфигурацию приложения, а не ломает клиент.
+
+**Failover по DC реализован в ядре:** `MvsNetCore.sendWithFailover` строит план (домашний DC первым), делает по одной попытке на центр (по умолчанию не больше трёх) и переходит к следующему только на транспортных ошибках — таймаут, `IOException`, отрицательные коды и `0`, 5xx. Ответы 4xx, flood wait и `303 MIGRATE_*` остаются окончательными. План виден через `failoverPlan(preferred)`, здоровье центров пишется в `DcSupervisor`, а в `ConnectionsManager.sendRequest` передаётся конкретный DC.
+
+Границы, без прикрас: физическое соединение, ключи и `MIGRATE_*` остаются в нативном движке; `Config.nativeDcRouting` по-прежнему `false`, и `send()` не меняет выбор DC клиента — центры выбирает только `sendWithFailover`. Остальные запросы приложения идут мимо ядра. Подробности: `android/README.md`.
 
 `adapter-stubs/` нужны только для compile-only проверки контракта; в APK они не попадают.
 

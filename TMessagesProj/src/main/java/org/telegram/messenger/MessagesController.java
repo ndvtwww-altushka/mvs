@@ -447,18 +447,26 @@ public class MessagesController extends BaseController implements NotificationCe
     private final CacheFetcher<Integer, TLRPC.TL_help_appConfig> appConfigFetcher = new CacheFetcher<Integer, TLRPC.TL_help_appConfig>() {
         @Override
         protected void getRemote(int currentAccount, Integer arguments, long hash, Utilities.Callback4<Boolean, TLRPC.TL_help_appConfig, Long, Boolean> onResult) {
-            TLRPC.TL_help_getAppConfig req = new TLRPC.TL_help_getAppConfig();
-            req.hash = (int) hash;
-            getConnectionsManager().sendRequest(req, (res, err) -> {
-                if (res instanceof TLRPC.TL_help_appConfigNotModified) {
-                    onResult.run(true, null, 0L, true);
-                } else if (res instanceof TLRPC.TL_help_appConfig) {
-                    onResult.run(false, (TLRPC.TL_help_appConfig) res, (long) ((TLRPC.TL_help_appConfig) res).hash, true);
-                } else {
-                    FileLog.e("getting appconfig error " + (err != null ? err.code + " " + err.text : ""));
-                    onResult.run(false, null, 0L, err == null || !(err.code == -2000 || err.code == -2001));
-                }
-            });
+            final int configHash = (int) hash;
+            // Real traffic through mvs-core. The core owns the attempt, the DC order and the
+            // timeouts; the bridge rebuilds the reply from the bytes the adapter copied, because
+            // the native TLObject is already gone when the future completes.
+            boolean submitted = MvsCoreHost.sendWithFailover(currentAccount, "help.getAppConfig",
+                    () -> {
+                        TLRPC.TL_help_getAppConfig request = new TLRPC.TL_help_getAppConfig();
+                        request.hash = configHash;
+                        return request;
+                    },
+                    getConnectionsManager().getCurrentDatacenterId(), 10_000,
+                    (response, errorCode, errorText) ->
+                            completeAppConfigRequest(response, errorCode, errorText, onResult));
+            if (!submitted) {
+                // The core refused before any attempt (shut down, kill-switch): keep the native path.
+                TLRPC.TL_help_getAppConfig req = new TLRPC.TL_help_getAppConfig();
+                req.hash = configHash;
+                getConnectionsManager().sendRequest(req, (res, err) -> completeAppConfigRequest(
+                        res, err != null ? err.code : 0, err != null ? err.text : null, onResult));
+            }
         }
 
         @Override
@@ -525,6 +533,20 @@ public class MessagesController extends BaseController implements NotificationCe
             return false;
         }
     };
+
+    /** Shared by the core path and the native fallback so both keep identical behaviour. */
+    private void completeAppConfigRequest(TLObject response, int errorCode, String errorText,
+            Utilities.Callback4<Boolean, TLRPC.TL_help_appConfig, Long, Boolean> onResult) {
+        if (response instanceof TLRPC.TL_help_appConfigNotModified) {
+            onResult.run(true, null, 0L, true);
+        } else if (response instanceof TLRPC.TL_help_appConfig) {
+            TLRPC.TL_help_appConfig config = (TLRPC.TL_help_appConfig) response;
+            onResult.run(false, config, (long) config.hash, true);
+        } else {
+            FileLog.e("getting appconfig error " + errorCode + " " + errorText);
+            onResult.run(false, null, 0L, errorCode != -2000 && errorCode != -2001);
+        }
+    }
 
     public boolean enableJoined;
     public String linkPrefix;
