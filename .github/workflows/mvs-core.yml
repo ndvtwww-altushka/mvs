@@ -3,7 +3,10 @@ name: mvs-core audit
 on:
   workflow_dispatch:
   push:
-    branches: [core-audit]
+    branches: [main, core-audit]
+    paths:
+      - 'mvs-core/**'
+      - '.github/workflows/mvs-core.yml'
 
 permissions:
   contents: read
