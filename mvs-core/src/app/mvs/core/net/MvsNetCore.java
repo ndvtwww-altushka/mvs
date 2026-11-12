@@ -178,15 +178,18 @@ public final class MvsNetCore {
         if (options.timeoutMs < 1) return failed(new IllegalArgumentException("timeoutMs must be > 0"));
         if (supervisor.isOffline()) return failed(new IllegalStateException("offline (kill-switch)"));
 
-        int[] order = failoverOrder(options.dc);
+        int[] order = failoverPlan(options.dc);
         if (order.length == 0) return failed(new IllegalStateException("no healthy dc"));
         CompletableFuture<Object> result = new CompletableFuture<>();
         failoverAttempt(method, factory, options, order, 0, result);
         return result;
     }
 
-    /** Ordered data centres for one failover request; empty when every breaker is open. */
-    private int[] failoverOrder(int preferred) {
+    /**
+     * Ordered data centres one failover request would try; empty when every breaker is open.
+     * Read-only: it exists so callers and tests can see the decision without guessing.
+     */
+    public int[] failoverPlan(int preferred) {
         int limit = Math.min(Math.max(1, cfg.maxFailoverAttempts), cfg.dcCandidates.length + 1);
         List<Integer> order = new ArrayList<>();
         boolean pinned = preferred >= 1 && preferred != CallScheduler.Options.AUTO_DC;

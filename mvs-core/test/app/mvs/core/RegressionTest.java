@@ -460,7 +460,11 @@ public final class RegressionTest {
                     await(core.sendWithFailover("test.method", () -> new Object(), options));
                     throw new AssertionError("5xx accepted after every attempt");
                 } catch (ExecutionException expected) {
-                    check(port.dcs.equals(Arrays.asList(1, 2)), "attempt limit not honored: " + port.dcs);
+                    check(port.dcs.equals(Arrays.asList(1, 2)),
+                            "attempt limit not honored: tried " + port.dcs
+                                    + " plan=" + Arrays.toString(core.failoverPlan(1))
+                                    + " dc1=" + core.supervisor.breaker(1).state()
+                                    + " dc2=" + core.supervisor.breaker(2).state());
                 }
             } finally {
                 core.shutdown(2000);

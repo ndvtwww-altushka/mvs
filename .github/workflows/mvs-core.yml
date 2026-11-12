@@ -68,6 +68,9 @@ jobs:
           grep -h -E '^FAIL ' mvs-core/test-run.log 2>/dev/null | head -n 6 | while IFS= read -r line; do
             echo "::error title=regression::$line"
           done || true
+          grep -h -A3 -E '^FAIL ' mvs-core/test-run.log 2>/dev/null | grep -E 'at app\.mvs' | head -n 6 | while IFS= read -r line; do
+            echo "::error title=regression-frame::$line"
+          done || true
           grep -h -E '^REGRESSION RESULT' mvs-core/test-run.log 2>/dev/null | while IFS= read -r line; do
             echo "::notice title=regression::$line"
           done || true
