@@ -49,7 +49,7 @@ jobs:
         run: |
           set -euo pipefail
           cd mvs-core
-          java -cp out-all app.mvs.core.RegressionTest
+          java -cp out-all app.mvs.core.RegressionTest 2>&1 | tee test-run.log
 
       - name: Summary
         if: always()
@@ -62,8 +62,14 @@ jobs:
           echo "----- tests-javac.log -----"
           cat mvs-core/tests-javac.log 2>/dev/null || true
           # Job logs are not readable from outside; annotations are.
-          grep -h -E 'error:' mvs-core/*-javac.log 2>/dev/null | head -n 8 | while IFS= read -r line; do
+          grep -h -E 'error:' mvs-core/*-javac.log 2>/dev/null | head -n 6 | while IFS= read -r line; do
             echo "::error title=javac::$line"
+          done || true
+          grep -h -E '^FAIL ' mvs-core/test-run.log 2>/dev/null | head -n 6 | while IFS= read -r line; do
+            echo "::error title=regression::$line"
+          done || true
+          grep -h -E '^REGRESSION RESULT' mvs-core/test-run.log 2>/dev/null | while IFS= read -r line; do
+            echo "::notice title=regression::$line"
           done || true
 
   adapter-contract:

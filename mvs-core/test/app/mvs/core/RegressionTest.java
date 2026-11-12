@@ -408,7 +408,9 @@ public final class RegressionTest {
                 }
             }
             DcPort port = new DcPort();
-            MvsNetCore core = new MvsNetCore(port, new MvsNetCore.Config(), Clock.MONOTONIC);
+            MvsNetCore.Config config = new MvsNetCore.Config();
+            config.maxRetries = 0; // the host disables retries: failover rebuilds the payload
+            MvsNetCore core = new MvsNetCore(port, config, Clock.MONOTONIC);
             try {
                 CallScheduler.Options options = new CallScheduler.Options();
                 options.dc = 1;
@@ -439,6 +441,7 @@ public final class RegressionTest {
             DcPort port = new DcPort();
             MvsNetCore.Config config = new MvsNetCore.Config();
             config.maxFailoverAttempts = 2;
+            config.maxRetries = 0;
             MvsNetCore core = new MvsNetCore(port, config, Clock.MONOTONIC);
             try {
                 CallScheduler.Options options = new CallScheduler.Options();
