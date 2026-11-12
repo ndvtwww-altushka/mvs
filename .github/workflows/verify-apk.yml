@@ -57,9 +57,6 @@ jobs:
           missing=0
           for cls in \
             app/mvs/core/net/MvsNetCore \
-            app/mvs/core/net/CallScheduler \
-            app/mvs/core/net/RetryInterceptor \
-            app/mvs/core/net/CircuitBreaker \
             org/telegram/tgnet/MtprotoAdapter \
             org/telegram/messenger/MvsCoreHost; do
             if grep -aq "$cls" dex/*.dex; then
@@ -70,6 +67,11 @@ jobs:
             fi
           done
           for cls in \
+            app/mvs/core/net/CallScheduler \
+            app/mvs/core/net/RetryInterceptor \
+            app/mvs/core/net/DcSupervisor \
+            app/mvs/core/net/RequestPipeline \
+            app/mvs/core/net/CircuitBreaker \
             app/mvs/core/wire/FrameCodec \
             app/mvs/core/store/MessageStore \
             app/mvs/core/store/AesGcmCipher; do
