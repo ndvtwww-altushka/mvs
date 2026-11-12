@@ -1,0 +1,61 @@
+name: Verify APK contents
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Run id that produced the Staging artifact'
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the Staging artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Staging
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: out
+
+      - name: Inspect classes.dex
+        run: |
+          set -eu
+          apk=$(find out -name '*.apk' | sort | head -n 1)
+          echo "apk: $apk"
+          mkdir -p dex
+          unzip -o -q "$apk" 'classes*.dex' -d dex
+          ls -l dex
+          echo "::notice title=dex-files::$(ls dex | tr '\n' ' ')"
+          missing=0
+          for cls in \
+            app/mvs/core/net/MvsNetCore \
+            app/mvs/core/net/CallScheduler \
+            app/mvs/core/net/RetryInterceptor \
+            app/mvs/core/net/CircuitBreaker \
+            org/telegram/tgnet/MtprotoAdapter \
+            org/telegram/messenger/MvsCoreHost; do
+            if grep -aq "$cls" dex/*.dex; then
+              echo "::notice title=mvs-core::PRESENT $cls"
+            else
+              echo "::error title=mvs-core::MISSING $cls"
+              missing=1
+            fi
+          done
+          for cls in \
+            app/mvs/core/wire/FrameCodec \
+            app/mvs/core/store/MessageStore \
+            app/mvs/core/store/AesGcmCipher; do
+            if grep -aq "$cls" dex/*.dex; then
+              echo "::notice title=mvs-core::PRESENT-UNUSED $cls"
+            else
+              echo "::notice title=mvs-core::ABSENT-UNUSED $cls"
+            fi
+          done
+          echo "missing=$missing"
+          exit $missing
