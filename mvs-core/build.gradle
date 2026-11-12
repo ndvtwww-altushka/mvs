@@ -1,0 +1,32 @@
+plugins {
+    id 'java-library'
+}
+
+group = 'app.mvs'
+version = '0.2.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+sourceSets {
+    main {
+        java.srcDirs = ['src']
+    }
+    test {
+        java.srcDirs = ['test']
+    }
+}
+
+tasks.register('regressionTest', JavaExec) {
+    group = 'verification'
+    description = 'Runs the standalone MVS core regression suite.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'app.mvs.core.RegressionTest'
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('regressionTest')
+}
