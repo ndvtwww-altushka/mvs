@@ -474,6 +474,22 @@ object DdgConfig {
     @JvmField
     val testBackend = addConfig("DDGTestBackend", ConfigItem.configTypeBool, false)
 
+    // ---- Ink Studio ----
+
+    /**
+     * Чернила — акцентный цвет интерфейса: индекс в таблице
+     * [com.duckduckgram.duckerer.ink.InkAccent]. 0 — терракота, как в дизайн-системе.
+     */
+    @JvmField
+    val inkAccent = addConfig("DDGInkAccent", ConfigItem.configTypeInt, 0)
+
+    /**
+     * Зерно бумаги поверх интерфейса: 0 — выключено, 1 — тонкое (по умолчанию),
+     * 2 — заметное. См. [com.duckduckgram.duckerer.ink.InkGrain].
+     */
+    @JvmField
+    val inkGrain = addConfig("DDGInkGrain", ConfigItem.configTypeInt, 1)
+
     // ---- Инфраструктура ----
 
     private fun addConfig(key: String, type: Int, defaultValue: Any?): ConfigItem {

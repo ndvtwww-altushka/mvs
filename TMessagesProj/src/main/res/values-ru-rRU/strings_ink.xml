@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- mvs Ink Studio: русские строки экрана Ink Studio и датчика «Защита». -->
+<resources>
+    <!-- Чернила: акцентный цвет -->
+    <string name="InkStudioInkHeader">Чернила</string>
+    <string name="InkAccentTerracotta">Терракота</string>
+    <string name="InkAccentIndigo">Индиго</string>
+    <string name="InkAccentPine">Хвоя</string>
+    <string name="InkAccentPlum">Слива</string>
+    <string name="InkAccentGraphite">Графит</string>
+    <string name="InkStudioInkInfo">Единственный акцентный цвет приложения: значки, кнопки, ссылки и кнопка отправки.</string>
+
+    <!-- Бумага: зерно поверх интерфейса -->
+    <string name="InkStudioPaperHeader">Бумага</string>
+    <string name="InkStudioGrain">Зерно бумаги</string>
+    <string name="InkGrainOff">Выкл.</string>
+    <string name="InkGrainFine">Тонкое</string>
+    <string name="InkGrainVisible">Заметное</string>
+    <string name="InkStudioPaperInfo">Едва заметная печатная фактура поверх интерфейса. Она не перехватывает касания. Если нравится плоский цвет, выключите.</string>
+
+    <!-- Форма аватарок -->
+    <string name="InkStudioShapeHeader">Форма</string>
+    <string name="InkStudioAvatarShape">Форма аватарок</string>
+    <string name="InkShapeCircle">Круг</string>
+    <string name="InkShapeInk">Ink-квадрат</string>
+    <string name="InkShapeSquare">Квадрат</string>
+    <string name="InkShapeCustom">Своя</string>
+    <string name="InkStudioShapeInfo">Это та же настройка, что ползунок «Закругление аватарок» во внешнем виде приложения. Если чаты не перерисовались сразу, откройте список заново.</string>
+
+    <!-- Сброс -->
+    <string name="InkStudioReset">Сбросить Ink Studio</string>
+    <string name="InkStudioResetInfo">Возвращает чернила, зерно бумаги и форму аватарок к значениям по умолчанию.</string>
+
+    <!-- Образец: выдуманный собеседник, ничего не обращается к аккаунту -->
+    <string name="InkPreviewName">Мира</string>
+    <string name="InkPreviewLast">Прислала макет</string>
+    <string name="InkPreviewIn">Нашла страницу, смотри:</string>
+    <string name="InkPreviewOut">Выглядит отлично</string>
+    <string name="InkPreviewHint">Сообщение</string>
+
+    <!-- Защита: датчик и проверки -->
+    <string name="InkSecurityOf">из %1$d</string>
+    <string name="InkSecurityNote">Датчик считает только то, что приложение может проверить на этом устройстве прямо сейчас: подпись сборки, код-пароль и автоблокировку. Подпись плагинов и список разрешённых запланированы на v1.1 и в счёт не идут.</string>
+    <string name="InkFactSignature">Подпись сборки</string>
+    <string name="InkFactSigRelease">Релизный ключ</string>
+    <string name="InkFactSigDebug">Отладочный ключ</string>
+    <string name="InkFactUnknown">Не определено</string>
+    <string name="InkFactPasscode">Код-пароль</string>
+    <string name="InkFactPasscodeOn">Включён</string>
+    <string name="InkFactPasscodeOff">Выключен</string>
+    <string name="InkFactAutoLock">Автоблокировка</string>
+    <string name="InkFactAutoLockOn">Включена</string>
+    <string name="InkFactAutoLockOff">Выключена</string>
+    <string name="InkFactNeedsPasscode">Нужен код-пароль</string>
+</resources>

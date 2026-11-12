@@ -545,6 +545,8 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         drawerLayoutContainer.setClipToPadding(false);
 
         frameLayout.addView(drawerLayoutContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        // mvs Ink Studio: зерно бумаги поверх интерфейса; касания пропускает, при уровне «выкл.» скрыто.
+        frameLayout.addView(com.duckduckgram.duckerer.ink.InkGrain.createView(this), LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
         themeSwitchSunView = new ImageView(this) {
             @Override

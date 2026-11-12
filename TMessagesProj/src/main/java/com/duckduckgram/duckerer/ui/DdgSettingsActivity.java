@@ -61,6 +61,7 @@ public class DdgSettingsActivity extends BaseNekoSettingsActivity {
     private static List<Category> primaryCategories() {
         List<Category> list = new ArrayList<>();
         list.add(new Category(R.string.DDGSecurityTitle, R.drawable.msg_stealth_locked, DdgSecurityActivity::new));
+        list.add(new Category(R.string.InkStudioTitle, R.drawable.baseline_palette_24, DdgInkStudioActivity::new));
         list.add(new Category(R.string.DDGCategoryAppearance, R.drawable.msg_text_outlined, DdgAppearanceActivity::new));
         list.add(new Category(R.string.DDGCategoryInterface, R.drawable.msg_theme, DdgInterfaceActivity::new));
         // Java-плагины — отдельный движок и отдельный список; тот же экран, что

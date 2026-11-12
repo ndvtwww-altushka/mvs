@@ -9,7 +9,14 @@ import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Toast;
+
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.duckduckgram.duckerer.ink.InkSecurityCard;
+import com.duckduckgram.duckerer.ink.InkSecurityFacts;
 
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.R;
@@ -29,6 +36,13 @@ import java.util.List;
 public class DdgSecurityActivity extends DdgCategoryActivity {
 
     private static final String RELEASES_URL = "https://github.com/ndvtwww-altushka/mvs/releases";
+
+    /** mvs Ink Studio: датчик «Защита» со списком проверок. */
+    private static final int TYPE_INK_CARD = 962;
+
+    private InkSecurityCard inkCard;
+    /** Стрелка разыгрывает появление один раз за открытие экрана, а не при каждом обновлении. */
+    private boolean gaugePlayed;
 
     @Override
     protected int titleRes() {
@@ -54,6 +68,9 @@ public class DdgSecurityActivity extends DdgCategoryActivity {
     protected List<Row> buildRows() {
         List<Row> rows = new ArrayList<>();
 
+        rows.add(Row.custom(TYPE_INK_CARD));
+        rows.add(Row.info(R.string.InkSecurityNote));
+
         rows.add(Row.header(R.string.DDGSecurityState));
         rows.add(Row.valueAction(R.string.DDGSecurityApkSignature, this::apkSignature, this::copySignature));
         rows.add(Row.valueAction(R.string.DDGSecurityUpdates,
@@ -68,6 +85,27 @@ public class DdgSecurityActivity extends DdgCategoryActivity {
         rows.add(Row.info(R.string.DDGSecurityPluginsInfo));
 
         return rows;
+    }
+
+    @Override
+    protected View onCreateCustomViewHolder(ViewGroup parent, int viewType) {
+        if (viewType == TYPE_INK_CARD) {
+            inkCard = new InkSecurityCard(parent.getContext());
+            return inkCard;
+        }
+        return super.onCreateCustomViewHolder(parent, viewType);
+    }
+
+    /**
+     * Факты собираются заново при каждой привязке: вернувшись с экрана код-пароля,
+     * человек сразу видит, что датчик изменился (базовый onResume обновляет список).
+     */
+    @Override
+    protected void onBindCustomViewHolder(RecyclerView.ViewHolder holder, int position) {
+        if (holder.itemView == inkCard) {
+            inkCard.setFacts(InkSecurityFacts.collect(inkCard.getContext()), !gaugePlayed);
+            gaugePlayed = true;
+        }
     }
 
     private void openReleases() {
