@@ -103,7 +103,7 @@ jobs:
           path: |
             TMessagesProj/build/outputs/apk/release/*.apk
       - name: Publish GitHub pre-release
-        if: ${{ github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.publish) && !contains(github.event.head_commit.message, '[skip publish]') }}
+        if: ${{ (github.event_name != 'workflow_dispatch' || inputs.publish) && !contains(github.event.head_commit.message, '[skip publish]') }}
         env:
           GH_TOKEN: ${{ github.token }}
           COMMITS_JSON: ${{ toJSON(github.event.commits) }}
