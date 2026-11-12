@@ -189,7 +189,7 @@ public final class MvsNetCore {
     private int[] failoverOrder(int preferred) {
         int limit = Math.min(Math.max(1, cfg.maxFailoverAttempts), cfg.dcCandidates.length + 1);
         List<Integer> order = new ArrayList<>();
-        boolean pinned = preferred >= 1 && preferred != CallScheduler.AUTO_DC;
+        boolean pinned = preferred >= 1 && preferred != CallScheduler.Options.AUTO_DC;
         if (pinned && supervisor.breaker(preferred).peek()) order.add(preferred);
         int[] remaining = cfg.dcCandidates.clone();
         while (order.size() < limit && remaining.length > 0) {

@@ -65,7 +65,7 @@ public final class MvsCoreHost {
         if (!core.isRunning()) return false;
         CallScheduler.Options options = new CallScheduler.Options();
         options.timeoutMs = perAttemptTimeoutMs;
-        options.dc = homeDc >= 1 ? homeDc : CallScheduler.AUTO_DC;
+        options.dc = homeDc >= 1 ? homeDc : CallScheduler.Options.AUTO_DC;
         core.sendWithFailover(method, factory::get, options).whenComplete((value, error) -> {
             Throwable cause = unwrap(error);
             if (cause != null) {
