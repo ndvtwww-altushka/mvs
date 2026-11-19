@@ -40,6 +40,8 @@ mvs — клиент Telegram с собственной системой офо�
 [Releases](../../releases). CI подписывает сборку отладочным ключом, поэтому
 установка поверх другой сборки требует удаления приложения.
 
+База — [DuckDuckGram](https://github.com/Duckerer/DuckDuckGram) от [Duckerer](https://github.com/Duckerer).
+
 ## Лицензия
 
 GPLv3. Проект использует открытый код Telegram Android и клиентов на его
