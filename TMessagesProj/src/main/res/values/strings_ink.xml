@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- mvs Ink Studio: строки экрана Ink Studio и датчика «Защита». Ключи с префиксом Ink. -->
+<resources>
+    <string name="InkStudioTitle" translatable="false">Ink Studio</string>
+
+    <!-- Чернила: акцентный цвет -->
+    <string name="InkStudioInkHeader">Ink</string>
+    <string name="InkAccentTerracotta">Terracotta</string>
+    <string name="InkAccentIndigo">Indigo</string>
+    <string name="InkAccentPine">Pine</string>
+    <string name="InkAccentPlum">Plum</string>
+    <string name="InkAccentGraphite">Graphite</string>
+    <string name="InkStudioInkInfo">The app’s one accent colour: badges, buttons, links and the send button.</string>
+
+    <!-- Бумага: зерно поверх интерфейса -->
+    <string name="InkStudioPaperHeader">Paper</string>
+    <string name="InkStudioGrain">Paper grain</string>
+    <string name="InkGrainOff">Off</string>
+    <string name="InkGrainFine">Fine</string>
+    <string name="InkGrainVisible">Visible</string>
+    <string name="InkStudioPaperInfo">A faint print texture over the interface. It never intercepts touches. Turn it off if you prefer flat colour.</string>
+
+    <!-- Форма аватарок -->
+    <string name="InkStudioShapeHeader">Shape</string>
+    <string name="InkStudioAvatarShape">Avatar shape</string>
+    <string name="InkShapeCircle">Circle</string>
+    <string name="InkShapeInk">Ink square</string>
+    <string name="InkShapeSquare">Square</string>
+    <string name="InkShapeCustom">Custom</string>
+    <string name="InkStudioShapeInfo">The same setting as the “Avatar Corners” slider in the app’s appearance settings. If chats don’t redraw right away, reopen the list.</string>
+
+    <!-- Сброс -->
+    <string name="InkStudioReset">Reset Ink Studio</string>
+    <string name="InkStudioResetInfo">Returns ink, paper grain and avatar shape to the defaults.</string>
+
+    <!-- Образец: выдуманный собеседник, ничего не обращается к аккаунту -->
+    <string name="InkPreviewName">Mira</string>
+    <string name="InkPreviewLast">Sent you the layout</string>
+    <string name="InkPreviewIn">Found the page, take a look:</string>
+    <string name="InkPreviewOut">Looks great</string>
+    <string name="InkPreviewHint">Message</string>
+
+    <!-- Защита: датчик и проверки -->
+    <string name="InkSecurityOf">of %1$d</string>
+    <string name="InkSecurityNote">The gauge counts only what the app can verify on this device right now: build signature, passcode and auto-lock. Plugin signatures and the allowlist are planned for v1.1 and are not counted.</string>
+    <string name="InkFactSignature">Build signature</string>
+    <string name="InkFactSigRelease">Release key</string>
+    <string name="InkFactSigDebug">Debug key</string>
+    <string name="InkFactUnknown">Unknown</string>
+    <string name="InkFactPasscode">Passcode</string>
+    <string name="InkFactPasscodeOn">On</string>
+    <string name="InkFactPasscodeOff">Off</string>
+    <string name="InkFactAutoLock">Auto-lock</string>
+    <string name="InkFactAutoLockOn">On</string>
+    <string name="InkFactAutoLockOff">Off</string>
+    <string name="InkFactNeedsPasscode">Needs a passcode</string>
+</resources>

@@ -1,0 +1,81 @@
+package tw.nekomimi.nekogram.settings;
+
+import static org.telegram.messenger.LocaleController.getString;
+
+import android.content.Context;
+import android.view.View;
+
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.RecyclerView;
+
+import org.telegram.messenger.R;
+import org.telegram.messenger.browser.Browser;
+import org.telegram.ui.Cells.TextSettingsCell;
+import org.telegram.ui.Components.LayoutHelper;
+
+import tw.nekomimi.nekogram.DatacenterActivity;
+
+/**
+ * mvs: экран «О mvs».
+ *
+ * Раньше здесь были каналы и переводы чужого клиента. Каналов у mvs нет,
+ * поэтому остались только честные ссылки: исходный код и дата-центры.
+ */
+public class NekoAboutActivity extends BaseNekoSettingsActivity {
+
+    private static final String REPO_URL = "https://github.com/ndvtwww-altushka/mvs";
+
+    private int sourceCodeRow;
+    private int datacenterStatusRow;
+
+    @Override
+    protected void updateRows() {
+        super.updateRows();
+
+        sourceCodeRow = addRow();
+        datacenterStatusRow = addRow();
+    }
+
+    @Override
+    protected String getActionBarTitle() {
+        return getString(R.string.About);
+    }
+
+    @Override
+    protected void onItemClick(View view, int position, float x, float y) {
+        if (position == sourceCodeRow) {
+            Browser.openUrl(getParentActivity(), REPO_URL);
+        } else if (position == datacenterStatusRow) {
+            presentFragment(new DatacenterActivity(0));
+        }
+    }
+
+    @Override
+    protected BaseListAdapter createAdapter(Context context) {
+        return new ListAdapter(context);
+    }
+
+    private class ListAdapter extends BaseListAdapter {
+
+        public ListAdapter(Context context) {
+            super(context);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position, boolean partial) {
+            if (holder.getItemViewType() == TYPE_SETTINGS) {
+                TextSettingsCell textCell = (TextSettingsCell) holder.itemView;
+                if (position == sourceCodeRow) {
+                    textCell.setTextAndValue(getString(R.string.SourceCode), "GitHub", true);
+                } else if (position == datacenterStatusRow) {
+                    textCell.setText(getString(R.string.DatacenterStatus), false);
+                }
+            }
+        }
+
+        @Override
+        public int getItemViewType(int position) {
+            return TYPE_SETTINGS;
+        }
+    }
+}
